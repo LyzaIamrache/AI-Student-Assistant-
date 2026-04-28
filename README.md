@@ -18,8 +18,8 @@ Technologies Used:
 - PyTorch
 
 Project Structure:
-main.py → main program
-audio.mp4 → input audio file
+- main.py → main program
+- audio.mp4 → input audio file
 
 
 How to Run:
