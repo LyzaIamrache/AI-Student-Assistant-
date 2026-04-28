@@ -1,0 +1,147 @@
+from transformers import pipeline, AutoTokenizer, AutoModelForSeq2SeqLM
+import torch
+import time
+import os
+
+start_time = time.time()
+
+# ✅ Check GPU
+device = "cuda" if torch.cuda.is_available() else "cpu"
+pipeline_device = 0 if torch.cuda.is_available() else -1
+
+print("Using device:", device)
+
+# ✅ Automatically detect audio file
+audio_files = [
+    f for f in os.listdir()
+    if f.lower().endswith((".wav", ".mp3", ".mp4", ".m4a"))
+]
+
+if not audio_files:
+    raise FileNotFoundError("No audio file found. Please upload your file.")
+
+audio_file = audio_files[0]
+
+print("\nSTEP 1: AUDIO INPUT")
+print("Input file:", audio_file)
+
+print("\nSTEP 2: SPEECH-TO-TEXT TRANSCRIPTION")
+
+# ✅ Whisper on GPU
+asr = pipeline(
+    "automatic-speech-recognition",
+    model="openai/whisper-small",
+    device=pipeline_device
+)
+
+result = asr(audio_file, return_timestamps=True)
+transcription = result["text"].strip()
+
+print("\nTRANSCRIPTION:")
+print(transcription)
+
+print("\nSTEP 3: TEXT PROCESSING")
+
+# ✅ FLAN-T5 on GPU
+model_name = "google/flan-t5-large"
+
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModelForSeq2SeqLM.from_pretrained(model_name).to(device)
+
+def generate_text(prompt, max_tokens=300):
+    inputs = tokenizer(
+        prompt,
+        return_tensors="pt",
+        truncation=True,
+        max_length=1024
+    ).to(device)
+
+    outputs = model.generate(
+        **inputs,
+        max_new_tokens=max_tokens,
+        num_beams=6,
+        no_repeat_ngram_size=3,
+        temperature=0.7,
+        early_stopping=True
+    )
+
+    return tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+# ✅ GENERAL prompts (works for ANY audio)
+summary_prompt = f"""
+Read the lecture transcription and write a clear academic summary.
+
+Requirements:
+- Identify the main topic
+- Explain key ideas in your own words
+- Include examples if present
+- Do not copy sentences
+- Write 5–6 sentences
+
+Lecture:
+{transcription}
+"""
+
+key_points_prompt = f"""
+Extract key learning points from this lecture.
+
+Requirements:
+- Write EXACTLY 5 bullet points
+- Each point explains one idea
+- Include definitions or examples if present
+- Do not copy full sentences
+
+Lecture:
+{transcription}
+"""
+
+questions_prompt = f"""
+Create study questions based on this lecture.
+
+Requirements:
+- Write EXACTLY 5 questions
+- Focus on understanding and definitions
+- Do not answer them
+
+Lecture:
+{transcription}
+"""
+
+summary = generate_text(summary_prompt)
+key_points = generate_text(key_points_prompt)
+study_questions = generate_text(questions_prompt)
+
+print("\nSTEP 4: SUMMARY")
+print(summary)
+
+print("\nSTEP 5: KEY POINTS")
+print(key_points)
+
+print("\nSTEP 6: STUDY QUESTIONS")
+print(study_questions)
+
+latency = round(time.time() - start_time, 2)
+
+print("\nSTEP 7: LATENCY")
+print(latency, "seconds")
+
+# ✅ Save output
+with open("output.txt", "w", encoding="utf-8") as f:
+    f.write("AI Lecture Support Assistant Output\n\n")
+    f.write("STEP 1: AUDIO INPUT\n")
+    f.write("Input file: " + audio_file + "\n\n")
+
+    f.write("STEP 2: TRANSCRIPTION\n")
+    f.write(transcription + "\n\n")
+
+    f.write("STEP 3: SUMMARY\n")
+    f.write(summary + "\n\n")
+
+    f.write("STEP 4: KEY POINTS\n")
+    f.write(key_points + "\n\n")
+
+    f.write("STEP 5: STUDY QUESTIONS\n")
+    f.write(study_questions + "\n\n")
+
+    f.write("STEP 6: LATENCY\n")
+    f.write(str(latency) + " seconds\n")
