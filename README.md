@@ -20,7 +20,7 @@ Technologies Used:
 Project Structure:
 main.py → main program
 audio.mp4 → input audio file
-output.txt → generated results
+
 
 How to Run:
 1. Install dependencies:
