@@ -39,7 +39,6 @@ The system generates:
 - Key points
 - Study questions
 - Latency
-Results are saved in "output.txt"
 
 Limitations:
 - Summary may be too short
